@@ -34,10 +34,12 @@ class Department(db.Model):
 
 class Doctor(db.Model):
     __tablename__ = 'doctor'
+    user = db.relationship('User', backref='doctor')
     id            = db.Column(db.Integer, primary_key=True)
     fullname      = db.Column(db.String(100), nullable=False)
     user_id       = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False)
+    specialization = db.Column(db.String(100))
     qualification = db.Column(db.String(200), nullable=False)
     description   = db.Column(db.Text, nullable=True)
     contact       = db.Column(db.String(20))
@@ -52,15 +54,18 @@ class Doctor(db.Model):
             'user_id':         self.user_id,
             'department_id':   self.department_id,
             'department_name': self.department.name if self.department else None,
+            'specialization': self.specialization,
             'qualification':   self.qualification,
             'description':     self.description,
             'contact':         self.contact,
+            "is_blacklisted": self.user.is_blacklisted,
             'experience':      self.experience,
         }
 
 
 class Patient(db.Model):
     __tablename__ = 'patient'
+    user = db.relationship('User', backref='patient')
     id           = db.Column(db.Integer, primary_key=True)
     name         = db.Column(db.String(100), nullable=False)
     user_id      = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -77,6 +82,7 @@ class Patient(db.Model):
             'contact': self.contact,
             'gender':  self.gender,
             'age':     self.age,
+            "is_blacklisted": self.user.is_blacklisted
         }
 
 class Appointment(db.Model):
@@ -85,9 +91,10 @@ class Appointment(db.Model):
     doctor_id  = db.Column(db.Integer, db.ForeignKey('doctor.id'),  nullable=False)
     patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
     date       = db.Column(db.Date, nullable=False)
-    time       = db.Column(db.Time, nullable=False)
+    time = db.Column(db.String(100), nullable=False)
     status     = db.Column(db.String(20), default='Booked')  # Booked | Completed | Cancelled
     treatment  = db.relationship('Treatment', backref='appointment', uselist=False)
+    cancelled_by = db.Column(db.String(50), nullable=True)
 
     def to_dict(self):
         return {
@@ -98,9 +105,10 @@ class Appointment(db.Model):
             'patient_id':   self.patient_id,
             'patient_name': self.patient.name if self.patient else None,
             'date':         str(self.date),
-            'time':         str(self.time),
+            'time':         self.time,
             'status':       self.status,
             'treatment':    self.treatment.to_dict() if self.treatment else None,
+            'cancelled_by': self.cancelled_by,
         }
 
 class Treatment(db.Model):

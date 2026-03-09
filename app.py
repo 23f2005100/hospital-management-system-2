@@ -1,31 +1,45 @@
 from flask import Flask
 from application.database import db
+from flask_cors import CORS
 from flask_jwt_extended import JWTManager
+from werkzeug.security import generate_password_hash
+from application.celery_utils import make_celery          # NEW
+from celery.schedules import crontab          # NEW
 
-def create_app():
-    app = Flask(__name__)
-    app.debug = True
+app = Flask(__name__)
+app.debug = True
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///hospital.sqlite3'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['JWT_SECRET_KEY'] = 'super-secret-key-for-hospital-management-system'
 
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///hospital.sqlite3'
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['JWT_SECRET_KEY'] = 'super-secret-key'
+db.init_app(app)
+JWTManager(app)
+CORS(app)
 
-    db.init_app(app)
-    JWTManager(app)
+app.app_context().push()
 
-    # from application import auth_routes
-    # from application import admin_routes
-    # from application import doctor_routes
-    # from application import patient_routes
+celery = make_celery(app)                     # NEW
+celery.conf.update(include=['application.tasks'])
 
-    return app
+celery.conf.beat_schedule = {                 # NEW
+    'daily-reminders': {
+        'task': 'tasks.send_daily_reminders',
+        'schedule': crontab(hour=8, minute=0)
+    },
+    'monthly-report': {
+        'task': 'tasks.generate_monthly_report',
+        'schedule': crontab(day_of_month=1, hour=0, minute=0)
+    }
+}
 
-app = create_app()
+from application import auth_routes
+from application import admin_routes
+from application import doctor_routes
+from application import patient_routes
 
 if __name__ == '__main__':
     with app.app_context():
         from application.models import User, Department
-        from werkzeug.security import generate_password_hash
         db.create_all()
 
         if not User.query.filter_by(role='admin').first():
