@@ -32,12 +32,12 @@ def generate_monthly_report():
     from application.models import Doctor
 
     today = date.today()
-    # first_of_this_month = today.replace(day=1)
-    # last_month = first_of_this_month - timedelta(days=1)
-    # month = last_month.month
-    # year  = last_month.year
-    month = today.month
-    year = today.year
+    first_of_this_month = today.replace(day=1)
+    last_month = first_of_this_month - timedelta(days=1)
+    month = last_month.month
+    year  = last_month.year
+    # month = today.month
+    # year = today.year
     
     doctors = Doctor.query.all()
     for doctor in doctors:
