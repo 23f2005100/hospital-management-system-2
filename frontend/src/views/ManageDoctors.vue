@@ -1,85 +1,92 @@
 <template>
-  <div>
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-      <h1>Manage Doctors</h1>
-      <div style="display:flex; gap:8px;">
+  <div class="main">
+
+    <div class="page-header">
+      <div>
+        <h1>Manage Doctors</h1>
+        <p style="color: var(--text-soft); margin-top: 0.25rem; font-size: 0.9rem;">Add, edit, blacklist or remove doctors</p>
+      </div>
+      <div style="display:flex; gap:0.75rem;">
         <button @click="showForm = true">+ Add Doctor</button>
-        <button @click="$router.push('/admin/dashboard')">Back</button>
+        <button class="btn-secondary" @click="$router.push('/admin/dashboard')">Back</button>
       </div>
     </div>
 
-    <table border="1">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Specialization</th>
-          <th>Qualification</th>
-          <th>Experience</th>
-          <th>Department</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="d in doctors" :key="d.id">
-          <td>{{ d.fullname }}</td>
-          <td>{{ d.specialization }}</td>
-          <td>{{ d.qualification }}</td>
-          <td>{{ d.experience }} yrs</td>
-          <td>{{ d.department_name }}</td>
-          <td>{{ d.is_blacklisted ? 'Blacklisted' : 'Active' }}</td>
-          <td>
-            <button @click="openEdit(d)">Edit</button>
-            <button @click="toggleBlacklist(d.id, d.is_blacklisted)">{{ d.is_blacklisted ? 'Unblacklist' : 'Blacklist' }}</button>
-            <button @click="deleteDoctor(d.id)">Delete</button>
-          </td>
-        </tr>
-        <tr v-if="doctors.length === 0">
-          <td colspan="7">No doctors found.</td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="section">
+      <div class="section-header">
+        <h2>All Doctors</h2>
+        <span style="color: var(--text-soft); font-size: 0.88rem;">{{ doctors.length }} doctor(s)</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Specialization</th>
+            <th>Qualification</th>
+            <th>Experience</th>
+            <th>Department</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="d in doctors" :key="d.id">
+            <td><strong>{{ d.fullname }}</strong></td>
+            <td>{{ d.specialization }}</td>
+            <td>{{ d.qualification }}</td>
+            <td>{{ d.experience }} yrs</td>
+            <td>{{ d.department_name }}</td>
+            <td>
+              <span :style="{ color: d.is_blacklisted ? 'var(--pink-600)' : '#2eab7a', fontWeight: '700' }">
+                {{ d.is_blacklisted ? 'Blacklisted' : 'Active' }}
+              </span>
+            </td>
+            <td>
+              <div style="display:flex; gap:0.5rem;">
+                <button class="btn-edit" @click="openEdit(d)">Edit</button>
+                <button :class="d.is_blacklisted ? 'btn-success' : 'btn-secondary'" @click="toggleBlacklist(d.id, d.is_blacklisted)">
+                  {{ d.is_blacklisted ? 'Unblacklist' : 'Blacklist' }}
+                </button>
+                <button class="btn-danger" @click="deleteDoctor(d.id)">Delete</button>
+              </div>
+            </td>
+          </tr>
+          <tr v-if="doctors.length === 0">
+            <td colspan="7" class="empty">No doctors found.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-    <!-- Add / Edit Popup -->
-    <div v-if="showForm || showEdit" class="overlay">
-      <div class="popup">
-        <h3>{{ showEdit ? 'Edit Doctor' : 'Add Doctor' }}</h3>
+    <!-- Add / Edit Modal -->
+    <div v-if="showForm || showEdit" class="modal-overlay">
+      <div class="modal" style="width:500px; max-height:90vh; overflow-y:auto;">
+        <h3>{{ showEdit ? ' Edit Doctor' : ' Add Doctor' }}</h3>
 
-        <label>Full Name</label><br />
-        <input v-model="form.fullname" placeholder="e.g. Dr. John Smith" /><br /><br />
+        <input v-model="form.fullname"       placeholder="Full Name" />
 
         <template v-if="!showEdit">
-          <label>Email</label><br />
-          <input v-model="form.email" placeholder="doctor@email.com" /><br /><br />
-
-          <label>Password</label><br />
-          <input v-model="form.password" type="password" placeholder="Password" /><br /><br />
+          <input v-model="form.email"        placeholder="Email" />
+          <input v-model="form.password"     placeholder="Password" type="password" />
         </template>
 
-        <label>Specialization</label><br />
-        <input v-model="form.specialization" placeholder="e.g. Cardiologist" /><br /><br />
+        <input v-model="form.specialization" placeholder="Specialization" />
+        <input v-model="form.qualification"  placeholder="Qualification" />
+        <input v-model="form.experience"     placeholder="Experience (years)" />
+        <input v-model="form.description"    placeholder="Profile Description" />
+        <input v-model="form.contact"        placeholder="Contact Number" />
 
-        <label>Qualification</label><br />
-        <input v-model="form.qualification" placeholder="e.g. MBBS, MD" /><br /><br />
-
-        <label>Experience (years)</label><br />
-        <input v-model="form.experience" placeholder="e.g. 5" /><br /><br />
-
-        <label>Description</label><br />
-        <input v-model="form.description" placeholder="Brief profile description" /><br /><br />
-
-        <label>Contact</label><br />
-        <input v-model="form.contact" placeholder="Phone number" /><br /><br />
-
-        <label>Department</label><br />
         <select v-model="form.department_id">
           <option disabled value="">Select Department</option>
           <option v-for="dept in departments" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
-        </select><br /><br />
+        </select>
 
-        <p v-if="error" style="color:red">{{ error }}</p>
-        <button @click="showEdit ? updateDoctor() : addDoctor()">Save</button>
-        <button @click="closeForm">Cancel</button>
+        <p v-if="error" class="error-msg">{{ error }}</p>
+
+        <div class="modal-actions">
+          <button @click="showEdit ? updateDoctor() : addDoctor()">Save</button>
+          <button class="btn-secondary" @click="closeForm">Cancel</button>
+        </div>
       </div>
     </div>
 
@@ -97,7 +104,7 @@ export default {
       editingId:   null,
       error:       '',
       form: { fullname: '', email: '', password: '', specialization: '', qualification: '', experience: '', description: '', contact: '', department_id: '' },
-      headers:     { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' }
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' }
     }
   },
   mounted() { this.fetchData() },
@@ -110,18 +117,18 @@ export default {
       this.departments = await deptRes.json()
     },
 
-      openEdit(doctor) {
-        this.editingId           = doctor.id
-        this.form.fullname       = doctor.fullname
-        this.form.specialization = doctor.specialization
-        this.form.qualification  = doctor.qualification
-        this.form.experience     = doctor.experience
-        this.form.description    = doctor.description
-        this.form.contact        = doctor.contact
-        this.form.department_id  = doctor.department_id
-        this.showEdit            = true
-      },
-      
+    openEdit(doctor) {
+      this.editingId           = doctor.id
+      this.form.fullname       = doctor.fullname
+      this.form.specialization = doctor.specialization
+      this.form.qualification  = doctor.qualification
+      this.form.experience     = doctor.experience
+      this.form.description    = doctor.description
+      this.form.contact        = doctor.contact
+      this.form.department_id  = doctor.department_id
+      this.showEdit            = true
+    },
+
     closeForm() {
       this.showForm = false
       this.showEdit = false
@@ -159,9 +166,3 @@ export default {
   }
 }
 </script>
-
-<style scoped>
-.overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; }
-.popup   { background: white; padding: 2rem; border-radius: 8px; min-width: 320px; max-height: 90vh; overflow-y: auto; }
-input, select { width: 100%; padding: 6px; box-sizing: border-box; }
-</style>

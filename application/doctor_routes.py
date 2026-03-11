@@ -4,7 +4,7 @@ from application.database import db
 from application.models import Doctor, Patient, Appointment, Treatment, Availability, User
 from datetime import date, datetime, timedelta
 import json
-from cache_utils import get_cached, set_cached, delete_cached
+from application.cache_utils import get_cached, set_cached, delete_cached
 
 def get_doctor():
     user_id = int(get_jwt_identity())
@@ -165,6 +165,7 @@ def add_availability():
     db.session.add(slot)
     db.session.commit()
     delete_cached(f"availability:doctor:{doctor.id}")
+    delete_cached(f"doctor:{doctor.id}") 
     return jsonify({"message": "Slot added"})
 
 
@@ -180,4 +181,6 @@ def delete_availability(slot_id):
 
     db.session.delete(slot)
     db.session.commit()
+    delete_cached(f"availability:doctor:{doctor.id}")
+    delete_cached(f"doctor:{doctor.id}")   # ← add this
     return jsonify({"message": "Slot removed"}), 200

@@ -11,6 +11,11 @@ app.debug = True
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///hospital.sqlite3'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = 'super-secret-key-for-hospital-management-system'
+app.config['MAIL_SERVER']   = 'smtp.gmail.com'
+app.config['MAIL_PORT']     = 587
+app.config['MAIL_USERNAME'] = 'bhattacharyyapuspita0@gmail.com'
+app.config['MAIL_PASSWORD'] = 'ebhdvckbbqltekxn'
+app.config['MAIL_FROM']     = 'bhattacharyyapuspita0@gmail.com'
 
 db.init_app(app)
 JWTManager(app)
@@ -23,11 +28,11 @@ celery.conf.update(include=['application.tasks'])
 
 celery.conf.beat_schedule = {                 # NEW
     'daily-reminders': {
-        'task': 'tasks.send_daily_reminders',
+        'task': 'application.tasks.send_daily_reminders',
         'schedule': crontab(hour=8, minute=0)
     },
     'monthly-report': {
-        'task': 'tasks.generate_monthly_report',
+        'task': 'application.tasks.generate_monthly_report',
         'schedule': crontab(day_of_month=1, hour=0, minute=0)
     }
 }

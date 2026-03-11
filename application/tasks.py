@@ -5,20 +5,26 @@ from datetime import date, timedelta
 import csv
 import os
 
+from application.mail_utils import send_email
+from application.mail_utils import send_email, send_email_with_attachment
+
 @celery.task
 def send_daily_reminders():
     today = date.today()
-    appointments = Appointment.query.filter_by(date=today, status="Booked"
-    ).all()
+    appointments = Appointment.query.filter_by(date=today, status="Booked").all()
 
     for appt in appointments:
         patient = Patient.query.get(appt.patient_id)
         user    = User.query.get(patient.user_id)
-        # In real app you'd send email here
-        # For now just print
-        print(f"[REMINDER] {user.email} — appointment today at {appt.time}")
+        html = f"""
+        <h2>Hospital Reminder</h2>
+        <p>Hi {patient.name}, you have an appointment today at <b>{appt.time}</b>.</p>
+        <p>Please visit the hospital on time.</p>
+        """
+        send_email(user.email, "Appointment Reminder", html)
 
     return f"Sent {len(appointments)} reminders"
+
 
 @celery.task
 def generate_monthly_report():
@@ -26,36 +32,48 @@ def generate_monthly_report():
     from application.models import Doctor
 
     today = date.today()
-    # first day of current month → go back 1 day → gives last month
-    first_of_this_month = today.replace(day=1)
-    last_month = first_of_this_month - timedelta(days=1)
-    month = last_month.month
-    year  = last_month.year
-
+    # first_of_this_month = today.replace(day=1)
+    # last_month = first_of_this_month - timedelta(days=1)
+    # month = last_month.month
+    # year  = last_month.year
+    month = today.month
+    year = today.year
+    
     doctors = Doctor.query.all()
-
     for doctor in doctors:
         user = User.query.get(doctor.user_id)
-
         appointments = Appointment.query.filter(
             Appointment.doctor_id == doctor.id,
-            Appointment.status == "Completed",
+            Appointment.status    == "Completed",
             extract('month', Appointment.date) == month,
             extract('year',  Appointment.date) == year
         ).all()
 
-        print(f"\n[MONTHLY REPORT] Doctor: {doctor.fullname} | {year}-{month:02d}")
-        print(f"  Total Completed: {len(appointments)}")
+        html = f"<h2>Monthly Report — Dr. {doctor.fullname} ({year}-{month:02d})</h2>"
+        html += f"<p>Total Completed Appointments: {len(appointments)}</p><ul>"
         for appt in appointments:
-            patient = Patient.query.get(appt.patient_id)
-            treatment = appt.treatment  # backref from Treatment model
-            diagnosis = treatment.diagnosis if treatment else "N/A"
-            print(f"  - {patient.name} on {appt.date} | Diagnosis: {diagnosis}")
+            patient   = Patient.query.get(appt.patient_id)
+            t = appt.treatment
+            html += f"""
+            <li style="margin-bottom:10px;">
+                <strong>{patient.name}</strong> on {appt.date}<br/>
+                Visit Type: {t.visit_type   if t else 'N/A'}<br/>
+                Tests Done: {t.test_done    if t else 'N/A'}<br/>
+                Diagnosis:  {t.diagnosis    if t else 'N/A'}<br/>
+                Rx:         {t.prescription if t else 'N/A'}<br/>
+                Medicines:  {t.medicines    if t else 'N/A'}<br/>
+                Notes:      {t.notes        if t else 'N/A'}<br/>
+                Next Visit: {t.next_visit   if t else 'N/A'}
+            </li>"""
 
-    return "Monthly reports generated"
+        send_email(user.email, f"Monthly Report - {year}-{month:02d}", html)
+
+    return "Monthly reports sent"
+
 
 @celery.task
 def export_patient_csv(patient_id):
+    import csv, os
     from application.models import Patient, Appointment, Doctor, User
 
     patient = Patient.query.get(patient_id)
@@ -72,20 +90,30 @@ def export_patient_csv(patient_id):
 
     with open(filepath, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["User ID", "Patient Name", "Doctor", "Date", "Diagnosis", "Treatment", "Next Visit"])
-
+        writer.writerow([
+            "User ID", "Patient Name", "Doctor", "Date",
+            "Visit Type", "Tests Done", "Diagnosis",
+            "Prescription", "Medicines", "Notes", "Next Visit"
+        ])
         for appt in appointments:
             doctor    = Doctor.query.get(appt.doctor_id)
-            treatment = appt.treatment
+            t         = appt.treatment
             writer.writerow([
-                user.id,
-                patient.name,
-                doctor.fullname,
-                appt.date,
-                treatment.diagnosis   if treatment else "N/A",
-                treatment.prescription if treatment else "N/A",
-                treatment.next_visit  if treatment else "N/A",
+                user.id, patient.name, doctor.fullname, appt.date,
+                t.visit_type   if t else "N/A",
+                t.test_done    if t else "N/A",
+                t.diagnosis    if t else "N/A",
+                t.prescription if t else "N/A",
+                t.medicines    if t else "N/A",
+                t.notes        if t else "N/A",
+                t.next_visit   if t else "N/A",
             ])
 
-    print(f"[CSV EXPORT] Export ready for {user.email} → {filepath}")
-    return f"Export done: {filepath}"
+    send_email_with_attachment(
+        to        = user.email,
+        subject   = "Your CSV Export is Ready",
+        html_body = f"<h2>Export Ready</h2><p>Hi {patient.name}, your treatment history is attached.</p>",
+        filepath  = filepath,
+        filename  = filename
+    )
+    return f"Export done + email sent: {filepath}"

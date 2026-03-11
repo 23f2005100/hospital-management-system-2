@@ -34,7 +34,7 @@ async function login() {
     })
     const data = await res.json()
 
-    if (!res.ok) {
+    if (data.error) {
       error.value = data.error || 'Login failed'
       return
     }

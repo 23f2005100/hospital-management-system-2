@@ -1,101 +1,116 @@
 <template>
-  <div>
-    <h1>Doctor Dashboard</h1>
-    <button @click="logout">Logout</button>
-    <button @click="$router.push('/doctor/availability')">+ Add Availability</button>
+  <div class="main">
 
-    <h2>Upcoming Appointments</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Patient</th>
-          <th>Date</th>
-          <th>Time</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="a in upcoming" :key="a.id">
-          <td>{{ a.patient_name }}</td>
-          <td>{{ a.date }}</td>
-          <td>{{ a.time }}</td>
-          <td>{{ a.status }}</td>
-          <td>
-            <button @click="cancel(a.id)">Cancel</button>
-            <button @click="openTreatment(a)">Add Treatment</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="page-header">
+      <div>
+        <h1>🩺 Dr. {{ doctor.fullname }}</h1>
+        <p style="color: var(--text-soft); margin-top: 0.25rem; font-size: 0.9rem;">Manage your appointments and patients</p>
+      </div>
+      <div style="display:flex; gap:0.75rem;">
+        <button @click="$router.push('/doctor/availability')">+ Add Availability</button>
+        <button class="btn-danger" @click="logout">Logout</button>
+      </div>
+    </div>
 
-    <h2>Assigned Patients</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Contact</th>
-          <th>Patient History</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="p in assigned" :key="p.id">
-          <td>{{ p.name }}</td>
-          <td>{{ p.age }}</td>
-          <td>
-            <button @click="$router.push(`/doctor/patient/${p.id}/history`)">View History</button>
-          </td>
-        </tr>
-        <tr v-if="assigned.length === 0">
-          <td colspan="4">No assigned patients</td>
-        </tr>
-      </tbody>
-    </table>
+    <!-- Upcoming Appointments -->
+    <div class="section">
+      <div class="section-header">
+        <h2>Upcoming Appointments</h2>
+        <span style="color: var(--text-soft); font-size: 0.88rem;">{{ upcoming.length }} appointment(s)</span>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Patient</th><th>Date</th><th>Time</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="a in upcoming" :key="a.id">
+            <td><strong>{{ a.patient_name }}</strong></td>
+            <td>{{ a.date }}</td>
+            <td>{{ a.time }}</td>
+            <td><span :class="['badge', a.status.toLowerCase()]">{{ a.status }}</span></td>
+            <td>
+              <div style="display:flex; gap:0.5rem;">
+                <button class="btn-danger" @click="cancel(a.id)">Cancel</button>
+                <button class="btn-success" @click="openTreatment(a)">Add Treatment</button>
+              </div>
+            </td>
+          </tr>
+          <tr v-if="upcoming.length === 0">
+            <td colspan="5" class="empty">No upcoming appointments</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-    <h2>Past Appointments</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Patient</th>
-          <th>Date</th>
-          <th>Time</th>
-          <th>Status</th>
-          <th>Cancelled By</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="a in past" :key="a.id">
-          <td>{{ a.patient_name }}</td>
-          <td>{{ a.date }}</td>
-          <td>{{ a.time }}</td>
-          <td>{{ a.status }}</td>
-          <td>{{ a.cancelled_by ? a.cancelled_by : '-' }}</td>
-          <td>
-            <button @click="$router.push(`/doctor/patient/${a.patient_id}/history`)">View History</button>
-          </td>
-        </tr>
-        <tr v-if="past.length === 0">
-          <td colspan="6">No past appointments</td>
-        </tr>
-      </tbody>
-    </table>
+    <!-- Assigned Patients -->
+    <div class="section">
+      <div class="section-header">
+        <h2>Assigned Patients</h2>
+        <span style="color: var(--text-soft); font-size: 0.88rem;">{{ assigned.length }} patient(s)</span>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Age</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="p in assigned" :key="p.id">
+            <td><strong>{{ p.name }}</strong></td>
+            <td>{{ p.age }}</td>
+            <td>
+              <button @click="$router.push(`/doctor/patient/${p.id}/history`)">View History</button>
+            </td>
+          </tr>
+          <tr v-if="assigned.length === 0">
+            <td colspan="3" class="empty">No assigned patients</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
+    <!-- Past Appointments -->
+    <div class="section">
+      <div class="section-header">
+        <h2>Past Appointments</h2>
+        <span style="color: var(--text-soft); font-size: 0.88rem;">{{ past.length }} record(s)</span>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Patient</th><th>Date</th><th>Time</th><th>Status</th><th>Cancelled By</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="a in past" :key="a.id">
+            <td><strong>{{ a.patient_name }}</strong></td>
+            <td>{{ a.date }}</td>
+            <td>{{ a.time }}</td>
+            <td><span :class="['badge', a.status.toLowerCase()]">{{ a.status }}</span></td>
+            <td>{{ a.cancelled_by || '—' }}</td>
+            <td>
+              <button @click="$router.push(`/doctor/patient/${a.patient_id}/history`)">View History</button>
+            </td>
+          </tr>
+          <tr v-if="past.length === 0">
+            <td colspan="6" class="empty">No past appointments</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-    <!-- Add Treatment Popup -->
-    <div v-if="showTreatmentForm" class="overlay">
-      <div class="popup">
+    <!-- Treatment Modal -->
+    <div v-if="showTreatmentForm" class="modal-overlay">
+      <div class="modal">
         <h3>Add Treatment</h3>
-        <input v-model="treatment.diagnosis"    placeholder="Diagnosis" /><br />
-        <input v-model="treatment.visit_type" placeholder = "Visit_Type"/><br />
-        <input v-model="treatment.test_done" placeholder="Tests_Done"/><br />
-        <input v-model="treatment.prescription" placeholder="Prescription" /><br />
-        <input v-model="treatment.medicines"    placeholder="Medicines" /><br />
-        <input v-model="treatment.notes"        placeholder="Notes" /><br />
-        <input v-model="treatment.next_visit"   type="date" /><br />
-        <p v-if="treatmentError">{{ treatmentError }}</p>
-        <button @click="saveTreatment">Save</button>
-        <button @click="showTreatmentForm = false">Cancel</button>
+        <input v-model="treatment.visit_type"   placeholder="Visit Type" />
+        <input v-model="treatment.test_done"    placeholder="Tests Done" />
+        <input v-model="treatment.diagnosis"    placeholder="Diagnosis" />
+        <input v-model="treatment.prescription" placeholder="Prescription" />
+        <input v-model="treatment.medicines"    placeholder="Medicines" />
+        <input v-model="treatment.notes"        placeholder="Notes" />
+        <input v-model="treatment.next_visit"   type="date" placeholder="Next Visit" />
+        <p v-if="treatmentError" class="error-msg">{{ treatmentError }}</p>
+        <div class="modal-actions">
+          <button @click="saveTreatment">Save</button>
+          <button class="btn-secondary" @click="showTreatmentForm = false">Cancel</button>
+        </div>
       </div>
     </div>
 
@@ -106,7 +121,8 @@
 export default {
   data() {
     return {
-      upcoming:          [],
+      doctor: [],
+      upcoming: [],
       assigned: [],
       past: [],
       showTreatmentForm: false,
@@ -119,22 +135,16 @@ export default {
       }
     }
   },
-  mounted() {
-    this.fetchData()
-  },
+  mounted() { this.fetchData() },
   methods: {
     async fetchData() {
       const res = await fetch('http://127.0.0.1:5000/api/doctor/dashboard', { headers: this.headers })
       if (res.status === 401) { this.$router.push('/'); return }
       const data = await res.json()
-      this.upcoming          = data.upcoming || []
+      this.doctor = data.doctor
+      this.upcoming = data.upcoming || []
       this.assigned = data.assigned || []
-      this.past = data.past || []
-    },
-
-    async complete(id) {
-      await fetch(`http://127.0.0.1:5000/api/doctor/appointments/${id}/complete`, { method: 'POST', headers: this.headers })
-      this.fetchData()
+      this.past     = data.past     || []
     },
 
     async cancel(id) {
@@ -154,19 +164,11 @@ export default {
       })
       if (!res.ok) { this.treatmentError = 'Failed to save'; return }
       this.showTreatmentForm = false
-      this.treatment = { diagnosis: '', prescription: '', medicines: '', notes: '', next_visit: '' }
+      this.treatment = { diagnosis: '', visit_type: '', test_done: '', prescription: '', medicines: '', notes: '', next_visit: '' }
       this.fetchData()
     },
 
-    logout() {
-      localStorage.clear()
-      this.$router.push('/')
-    }
+    logout() { localStorage.clear(); this.$router.push('/') }
   }
 }
 </script>
-
-<style scoped>
-.overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; }
-.popup   { background: white; padding: 2rem; border-radius: 8px; min-width: 300px; }
-</style>

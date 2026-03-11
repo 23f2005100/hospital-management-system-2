@@ -9,8 +9,12 @@ def get_cached(key):
         return json.loads(data)
     return None
 
-def set_cached(key, value, ttl=300):  # default 5 min
-    r.setex(key, ttl, json.dumps(value))
+def set_cached(key, value, ttl=300):
+    try:
+        r.setex(key, ttl, json.dumps(value))
+        print(f"✅ Cached: {key}")
+    except Exception as e:
+        print(f"❌ Cache failed: {e}")
 
 def delete_cached(*keys):
     for key in keys:

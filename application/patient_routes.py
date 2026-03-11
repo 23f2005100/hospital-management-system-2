@@ -2,8 +2,8 @@ from flask import request, jsonify, current_app as app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from application.database import db
 from application.models import Patient, User, Doctor, Department, Appointment, Availability
-from datetime import date
-from cache_utils import get_cached, set_cached, delete_cached
+from datetime import date, timedelta
+from application.cache_utils import get_cached, set_cached, delete_cached
 
 def get_patient():
     user_id = int(get_jwt_identity())
@@ -36,18 +36,34 @@ def patient_dashboard():
         "upcoming":     [a.to_dict() for a in upcoming],
     })
 
-
 @app.route("/api/patient/profile", methods=["PUT"])
 @jwt_required()
 def update_profile():
     patient, err = get_patient()
     if err: return err
 
-    data            = request.get_json()
+    user = User.query.get(patient.user_id)
+    data = request.get_json()
+
+    # Patient model fields
     patient.name    = data.get("name",    patient.name)
     patient.contact = data.get("contact", patient.contact)
     patient.gender  = data.get("gender",  patient.gender)
     patient.age     = data.get("age",     patient.age)
+
+    # Email update
+    new_email = data.get("email")
+    if new_email and new_email != user.email:
+        if User.query.filter_by(email=new_email).first():
+            return jsonify({"error": "Email already in use"})
+        user.email = new_email
+
+    # Password update - no old password needed
+    new_password = data.get("password")
+    if new_password:
+        from werkzeug.security import generate_password_hash
+        user.password = generate_password_hash(new_password)
+
     db.session.commit()
     return jsonify(patient.to_dict())
 
@@ -64,8 +80,7 @@ def get_department_doctors(dept_id):
 
     dept = Department.query.get(dept_id)
     doctors = Doctor.query.join(User).filter(
-        Doctor.department_id == dept_id,
-        User.is_blacklisted == False
+        Doctor.department_id == dept_id
     ).all()
 
     data = {"department": dept.to_dict(), "doctors": [d.to_dict() for d in doctors]}
@@ -77,17 +92,24 @@ def get_department_doctors(dept_id):
 def get_doctor_profile(doctor_id):
     patient, err = get_patient()
     if err: return err
+    
+    today = date.today()
+    next_week = today + timedelta(days=7)
 
+    doctor = Doctor.query.get(doctor_id)
+    if doctor.user.is_blacklisted:              # 
+        return jsonify({"error": "Doctor not available"})
+    
     cache_key = f"doctor:{doctor_id}"
     cached = get_cached(cache_key)
     if cached:
         return jsonify(cached)
-
-    doctor = Doctor.query.get(doctor_id)
+    
     slots = Availability.query.filter(
         Availability.doctor_id == doctor_id,
         Availability.is_available == True,
-        Availability.date >= date.today()
+        Availability.date >= date.today(),
+        Availability.date <= next_week
     ).order_by(Availability.date.asc()).all()
 
     data = {"doctor": doctor.to_dict(), "availability": [s.to_dict() for s in slots]}
@@ -105,6 +127,15 @@ def book_appointment(slot_id):
 
     if not slot.is_available:
         return jsonify({"error": "Slot not available"})
+    
+    existing = Appointment.query.filter_by(
+    doctor_id=slot.doctor_id,
+    date=slot.date,
+    time=slot.slot,
+    status="Booked"
+    ).first()
+    if existing:
+        return jsonify({"error": "Slot already booked"})
 
     appointment = Appointment(
         doctor_id  = slot.doctor_id,
@@ -146,6 +177,27 @@ def cancel_appointment(app_id):
     db.session.commit()
     delete_cached(f"doctor:{appointment.doctor_id}")
     return jsonify({"message": "Appointment cancelled"})
+
+@app.route("/api/patient/search", methods=["GET"])
+@jwt_required()
+def patient_search():
+    patient, err = get_patient()
+    if err: return err
+
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify({"doctors": []})
+
+    doctors = Doctor.query.join(Department).join(User).filter(
+        User.is_blacklisted == False,
+        db.or_(
+            Doctor.fullname.ilike(f"%{q}%"),
+            Doctor.specialization.ilike(f"%{q}%"),
+            Department.name.ilike(f"%{q}%")
+        )
+    ).all()
+
+    return jsonify({"doctors": [d.to_dict() for d in doctors]})
 
 @app.route("/api/patient/history", methods=["GET"])
 @jwt_required()

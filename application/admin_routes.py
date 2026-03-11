@@ -3,7 +3,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash
 from application.database import db
 from application.models import User, Doctor, Patient, Appointment, Department, Availability
-
+from application.cache_utils import get_cached, set_cached, delete_cached
+from datetime import date
 def admin_only():
     user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
@@ -33,20 +34,13 @@ def admin_dashboard():
 def get_doctors():
     err = admin_only()
     if err: return err
-    
-    # cached = cache.get('all_doctors')
-    # if cached:
-    #     return jsonify(cached), 200
-
     doctors = Doctor.query.all()
-    # cache.set('all_doctors', result, timeout=300)
     return jsonify({"result": [d.to_dict() for d in doctors]})
 
 
 @app.route("/api/admin/doctors", methods=["POST"])
 @jwt_required()
 def add_doctor():
-    # cache.delete('all_doctors')
     err = admin_only()
     if err: return err
 
@@ -106,6 +100,32 @@ def user_blacklist(role, id):
     if role == 'doctor':
         doctor = Doctor.query.get(id)
         user = User.query.get(doctor.user_id)
+        delete_cached(f"dept:{doctor.department_id}")   
+        delete_cached(f"doctor:{doctor.id}")            
+
+        # cancel future booked appointments
+        future_appointments = Appointment.query.filter_by(
+            doctor_id=doctor.id, status="Booked"
+        ).all()
+        for appt in future_appointments:
+            appt.status       = "Cancelled"
+            appt.cancelled_by = "admin"
+            slot = Availability.query.filter_by(
+                doctor_id=doctor.id,
+                date=appt.date,
+                slot=appt.time
+            ).first()
+            if slot:
+                slot.is_available = True
+        
+                # mark ALL future slots as unavailable  ← ADD THIS
+        future_slots = Availability.query.filter(
+            Availability.doctor_id == doctor.id,
+            Availability.date >= date.today()
+        ).all()
+        for slot in future_slots:
+            slot.is_available = False
+
     elif role == 'patient':
         patient = Patient.query.get(id)
         user = User.query.get(patient.user_id)
@@ -126,6 +146,18 @@ def user_unblacklist(role, id):
     if role == 'doctor':
         doctor = Doctor.query.get(id)
         user = User.query.get(doctor.user_id)
+
+        # restore future slots
+        future_slots = Availability.query.filter(
+            Availability.doctor_id == doctor.id,
+            Availability.date >= date.today()
+        ).all()
+        for slot in future_slots:
+            slot.is_available = True
+
+        delete_cached(f"dept:{doctor.department_id}")
+        delete_cached(f"doctor:{doctor.id}")
+
     elif role == 'patient':
         patient = Patient.query.get(id)
         user = User.query.get(patient.user_id)
@@ -210,13 +242,8 @@ def admin_get_departments():
     err = admin_only()
     if err: return err
 
-    # cached = cache.get('all_departments')
-    # if cached:
-    #     return jsonify(cached), 200
-
     depts  = Department.query.all()
     result = [d.to_dict() for d in depts]
-    # cache.set('all_departments', result, timeout=300)
     return jsonify(result)
 
 @app.route("/api/admin/search", methods=["GET"])

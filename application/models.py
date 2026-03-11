@@ -58,7 +58,7 @@ class Doctor(db.Model):
             'qualification':   self.qualification,
             'description':     self.description,
             'contact':         self.contact,
-            "is_blacklisted": self.user.is_blacklisted,
+            "is_blacklisted": self.user.is_blacklisted if self.user else False,
             'experience':      self.experience,
         }
 
@@ -82,7 +82,8 @@ class Patient(db.Model):
             'contact': self.contact,
             'gender':  self.gender,
             'age':     self.age,
-            "is_blacklisted": self.user.is_blacklisted
+            'email':          self.user.email, 
+            "is_blacklisted": self.user.is_blacklisted if self.user else False,
         }
 
 class Appointment(db.Model):

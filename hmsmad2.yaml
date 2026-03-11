@@ -1,0 +1,471 @@
+openapi: 3.0.0
+info:
+  title: Hospital Management System API
+  version: 1.0.0
+  description: REST API for HMS with role-based JWT authentication (Admin, Doctor, Patient)
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  # ──────────────────────────────────────────
+  # AUTH
+  # ──────────────────────────────────────────
+
+  /api/login:
+    post:
+      summary: Authenticate user and return JWT token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Returns JWT token, role, user_id, profile_id, name
+
+  /api/register:
+    post:
+      summary: Register a new patient account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Patient registered, returns JWT token and role
+
+  # ──────────────────────────────────────────
+  # ADMIN
+  # ──────────────────────────────────────────
+
+  /api/admin/dashboard:
+    get:
+      summary: Get admin dashboard — all doctors, patients, upcoming and past appointments
+      responses:
+        "200":
+          description: Returns doctors, patients, upcoming, previous lists
+
+  /api/admin/doctors:
+    get:
+      summary: Get list of all doctors
+      responses:
+        "200":
+          description: Returns list of doctor objects
+    post:
+      summary: Add a new doctor (also creates User account)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullname:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+                qualification:
+                  type: string
+                experience:
+                  type: string
+                department_id:
+                  type: integer
+                specialization:
+                  type: string
+                description:
+                  type: string
+                contact:
+                  type: string
+      responses:
+        "200":
+          description: Doctor created successfully
+
+  /api/admin/doctors/{doctor_id}:
+    put:
+      summary: Edit an existing doctor's details
+      parameters:
+        - name: doctor_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated doctor object
+
+  /api/admin/patients:
+    get:
+      summary: Get list of all patients
+      responses:
+        "200":
+          description: Returns list of patient objects
+
+  /api/admin/patients/{patient_id}:
+    put:
+      summary: Edit a patient's details
+      parameters:
+        - name: patient_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated patient object
+
+  /api/admin/appointments:
+    get:
+      summary: Get all appointments, optionally filtered by status
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [Booked, Completed, Cancelled]
+      responses:
+        "200":
+          description: List of appointment objects
+
+  /api/admin/departments:
+    get:
+      summary: Get all departments
+      responses:
+        "200":
+          description: List of department objects
+    post:
+      summary: Add a new department
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        "200":
+          description: Created department object
+
+  /api/admin/search:
+    get:
+      summary: Search doctors and patients by name, specialization, or contact
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Returns matching doctors and patients
+
+  /api/admin/blacklist/{role}/{id}:
+    post:
+      summary: Blacklist a doctor or patient
+      parameters:
+        - name: role
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [doctor, patient]
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User blacklisted
+
+  /api/admin/unblacklist/{role}/{id}:
+    post:
+      summary: Remove blacklist from a doctor or patient
+      parameters:
+        - name: role
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [doctor, patient]
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User unblacklisted
+
+  /api/admin/dashboard/delete/{role}/{id}:
+    delete:
+      summary: Permanently delete a doctor or patient and all related records
+      parameters:
+        - name: role
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [doctor, patient]
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User deleted from system
+
+  /api/admin/trigger-reminders:
+    post:
+      summary: Manually trigger Celery task to send daily appointment reminders
+      responses:
+        "200":
+          description: Reminder job triggered
+
+  /api/admin/trigger-report:
+    post:
+      summary: Manually trigger Celery task to generate monthly doctor reports
+      responses:
+        "200":
+          description: Report job triggered
+
+  # ──────────────────────────────────────────
+  # PATIENT
+  # ──────────────────────────────────────────
+
+  /api/patient/dashboard:
+    get:
+      summary: Get patient dashboard — profile, departments, upcoming appointments
+      responses:
+        "200":
+          description: Returns patient, departments, upcoming appointments
+
+  /api/patient/profile:
+    put:
+      summary: Update patient profile details
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                contact:
+                  type: string
+                gender:
+                  type: string
+                age:
+                  type: integer
+      responses:
+        "200":
+          description: Updated patient object
+
+  /api/patient/departments/{dept_id}:
+    get:
+      summary: Get department details and its list of active doctors
+      parameters:
+        - name: dept_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Returns department info and doctors list
+
+  /api/patient/doctors/{doctor_id}:
+    get:
+      summary: Get a doctor's profile and their available slots
+      parameters:
+        - name: doctor_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Returns doctor details and availability slots
+
+  /api/patient/book/{slot_id}:
+    post:
+      summary: Book an appointment using an availability slot
+      parameters:
+        - name: slot_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Appointment booked successfully
+
+  /api/patient/appointments/{app_id}/cancel:
+    post:
+      summary: Cancel a booked appointment
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Appointment cancelled
+
+  /api/patient/history:
+    get:
+      summary: Get patient's completed and cancelled appointment history
+      responses:
+        "200":
+          description: List of past appointments with treatment details
+
+  /api/patient/export:
+    post:
+      summary: Trigger Celery task to export patient history as CSV
+      responses:
+        "200":
+          description: Export job started
+
+  # ──────────────────────────────────────────
+  # DOCTOR
+  # ──────────────────────────────────────────
+
+  /api/doctor/dashboard:
+    get:
+      summary: Get doctor dashboard — profile, upcoming, assigned patients, past appointments
+      responses:
+        "200":
+          description: Returns doctor, upcoming, assigned, past
+
+  /api/doctor/appointments/{app_id}/cancel:
+    post:
+      summary: Doctor cancels a booked appointment and restores the slot
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Appointment cancelled by doctor
+
+  /api/doctor/appointments/{app_id}/treatment:
+    post:
+      summary: Add or update treatment details for an appointment (marks it Completed)
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visit_type:
+                  type: string
+                test_done:
+                  type: string
+                diagnosis:
+                  type: string
+                prescription:
+                  type: string
+                medicines:
+                  type: string
+                next_visit:
+                  type: string
+                notes:
+                  type: string
+      responses:
+        "200":
+          description: Treatment saved, appointment marked Completed
+
+  /api/doctor/patient/{patient_id}/history:
+    get:
+      summary: Get a specific patient's full appointment history (doctor view)
+      parameters:
+        - name: patient_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Returns patient info and their appointments
+
+  /api/doctor/availability:
+    get:
+      summary: Get doctor's own availability slots for the next 7 days
+      responses:
+        "200":
+          description: List of availability slots
+    post:
+      summary: Add a new availability slot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date:
+                  type: string
+                  example: "2025-06-15"
+                slot:
+                  type: string
+                  example: "09:00-10:00"
+      responses:
+        "200":
+          description: Slot added successfully
+
+  /api/doctor/availability/{slot_id}:
+    delete:
+      summary: Delete an availability slot
+      parameters:
+        - name: slot_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Slot removed
