@@ -29,7 +29,7 @@ celery.conf.update(include=['application.tasks'])
 celery.conf.beat_schedule = {                 # NEW
     'daily-reminders': {
         'task': 'application.tasks.send_daily_reminders',
-        'schedule': crontab(hour=8, minute=0)
+        'schedule': crontab(hour=5, minute=0)
     },
     'monthly-report': {
         'task': 'application.tasks.generate_monthly_report',
